@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            line-height: 1.5; /* 1.5 line spacing */
+            font-family: 'Roboto', sans-serif;
+        }
+        label[for="start_time"] {
+            font-weight: bold;
+            font-size: 18px; /* Increased font size by 4 points */
+        }
+        label[for="end_time"] {
+            font-weight: bold;
+            font-size: 18px; /* Increased font size by 4 points */
+        }
+    </style>
+</head>
+<body>
+    <form id="timeCalculator">
+        <label for="start_time">Start Time (HH:MM):</label>
+        <input type="text" id="start_time" required>
+        <br>
+
+        <label for="end_time">End Time (HH:MM):</label>
+        <input type="text" id="end_time" required>
+        <br>
+
+        <label for="rounding_option">Select rounding option:</label>
+        <select id="rounding_option" required>
+            <option value="1/10">1/10</option>
+            <option value="1/4">1/4</option>
+            <option value="1/2">1/2</option>
+        </select>
+        <br>
+
+        <button type="button" onclick="calculateDuration()">Calculate Duration</button>
+    </form>
+
+    <p id="result"></p>
+
+    <script>
+        function calculateDuration() {
+            const start_time = document.getElementById("start_time").value;
+            const end_time = document.getElementById("end_time").value;
+            const rounding_option = document.getElementById("rounding_option").value;
+
+            // Convert the start and end times to decimal format
+            const start_time_decimal = timeToDecimal(start_time);
+            const end_time_decimal = timeToDecimal(end_time);
+
+            // Handle the case where the end time is after midnight
+            let duration_decimal = end_time_decimal - start_time_decimal;
+            if (end_time_decimal < start_time_decimal) {
+                duration_decimal += 24; // Add 24 hours to the end time
+            }
+
+            // Round the duration
+            const rounded_duration = roundToNearestFraction(duration_decimal, parseFloat(rounding_option));
+
+            document.getElementById("result").textContent = `Duration in decimal format (rounded to ${rounding_option} hour): ${rounded_duration.toFixed(2)} hours`;
+        }
+
+        function timeToDecimal(timeStr) {
+            const time = timeStr.split(':');
+            return parseInt(time[0]) + parseInt(time[1]) / 60;
+        }
+
+        function roundToNearestFraction(value, fraction) {
+            return Math.round(value / fraction) * fraction;
+        }
+    </script>
+</body>
+</html>
