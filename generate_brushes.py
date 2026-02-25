@@ -325,6 +325,150 @@ def shape_pencil_outline_bold() -> Image.Image:
     return img.filter(ImageFilter.GaussianBlur(0.7))
 
 
+def shape_pencil_outline_hard() -> Image.Image:
+    """
+    4H-pencil feel: huge solid core (72 %), whisper-thin fringe (8 %).
+    Draws almost like a technical pen but retains a barely-there tooth.
+    """
+    cx = cy = SHAPE_SIZE // 2
+    r = SHAPE_SIZE // 2 - 8
+    yi, xi = np.mgrid[0:SHAPE_SIZE, 0:SHAPE_SIZE]
+    t = np.sqrt((xi - cx) ** 2 + (yi - cy) ** 2).astype(np.float32) / r
+
+    arr = np.where(t <= 0.72, 1.0, 0.0).astype(np.float32)
+    edge = (t > 0.70) & (t < 0.95)
+    edge_t = np.clip((t - 0.70) / 0.25, 0, 1)
+    base_falloff = (1.0 - edge_t) ** 2.5          # sharper drop-off
+    noise = np.random.uniform(-0.25, 0.25, arr.shape).astype(np.float32)
+    arr = np.where(edge, np.clip(base_falloff + noise * edge_t * 0.35, 0, 1), arr)
+    arr = np.where(t >= 0.95, 0.0, arr)
+
+    return Image.fromarray((arr * 255).astype(np.uint8), "L").filter(
+        ImageFilter.GaussianBlur(0.3))
+
+
+def shape_pencil_outline_soft() -> Image.Image:
+    """
+    6B-pencil feel: small solid core (30 %), wide diffuse fringe (70 %).
+    Lots of tooth, the edge almost dissolves into the paper.
+    """
+    cx = cy = SHAPE_SIZE // 2
+    r = SHAPE_SIZE // 2 - 4
+    yi, xi = np.mgrid[0:SHAPE_SIZE, 0:SHAPE_SIZE]
+    t = np.sqrt((xi - cx) ** 2 + (yi - cy) ** 2).astype(np.float32) / r
+
+    arr = np.where(t <= 0.30, 1.0, 0.0).astype(np.float32)
+    edge = (t > 0.26) & (t < 1.10)
+    edge_t = np.clip((t - 0.26) / 0.84, 0, 1)
+    base_falloff = (1.0 - edge_t) ** 0.85          # slow, gentle falloff
+    noise = np.random.uniform(-0.60, 0.60, arr.shape).astype(np.float32)
+    arr = np.where(edge, np.clip(base_falloff + noise * edge_t * 0.65, 0, 1), arr)
+    arr = np.where(t >= 1.10, 0.0, arr)
+
+    img = Image.fromarray((arr * 255).astype(np.uint8), "L")
+    return img.filter(ImageFilter.GaussianBlur(1.0))
+
+
+def shape_pencil_outline_scratchy() -> Image.Image:
+    """
+    Worn-pencil: deliberate skip-gaps even in the core,
+    and a jagged fringe, like dragging a blunt pencil fast.
+    """
+    cx = cy = SHAPE_SIZE // 2
+    r = SHAPE_SIZE // 2 - 6
+    yi, xi = np.mgrid[0:SHAPE_SIZE, 0:SHAPE_SIZE]
+    t = np.sqrt((xi - cx) ** 2 + (yi - cy) ** 2).astype(np.float32) / r
+
+    # Core has random voids (skip marks)
+    core_noise = np.random.uniform(0, 1, (SHAPE_SIZE, SHAPE_SIZE)).astype(np.float32)
+    arr = np.where(t <= 0.50, np.where(core_noise > 0.12, 1.0, 0.0), 0.0)
+
+    edge = (t > 0.45) & (t < 1.05)
+    edge_t = np.clip((t - 0.45) / 0.60, 0, 1)
+    base_falloff = (1.0 - edge_t) ** 1.0
+    noise = np.random.uniform(-0.80, 0.80, arr.shape).astype(np.float32)
+    arr = np.where(edge, np.clip(base_falloff + noise * edge_t * 0.85, 0, 1), arr)
+    arr = np.where(t >= 1.05, 0.0, arr)
+
+    img = Image.fromarray((arr * 255).astype(np.uint8), "L")
+    return img.filter(ImageFilter.GaussianBlur(0.4))
+
+
+def shape_pencil_outline_waxy() -> Image.Image:
+    """
+    Colored-pencil / wax: smooth gradient edge (not noisy),
+    slight translucency, like a Prismacolor outline.
+    """
+    cx = cy = SHAPE_SIZE // 2
+    r = SHAPE_SIZE // 2 - 6
+    yi, xi = np.mgrid[0:SHAPE_SIZE, 0:SHAPE_SIZE]
+    t = np.sqrt((xi - cx) ** 2 + (yi - cy) ** 2).astype(np.float32) / r
+
+    # Smooth sigmoid-style falloff – no harsh noise, just a gentle wax bloom
+    arr = np.clip(1.0 - ((t - 0.48) / 0.38), 0, 1) ** 1.8
+    # Tiny wax-particle imperfections (much subtler than pencil)
+    wax_noise = np.random.uniform(-0.10, 0.10, arr.shape).astype(np.float32)
+    arr = np.clip(arr + wax_noise * np.clip(1.0 - t, 0, 1), 0, 1)
+    arr = np.where(t >= 1.05, 0.0, arr)
+
+    img = Image.fromarray((arr * 255).astype(np.uint8), "L")
+    return img.filter(ImageFilter.GaussianBlur(1.2))
+
+
+def shape_pencil_outline_charcoal_edge() -> Image.Image:
+    """
+    Chunky charcoal-edged outline: wide fringe with big dark clumps,
+    like a charcoal pencil rubbed on medium-tooth paper.
+    """
+    cx = cy = SHAPE_SIZE // 2
+    r = SHAPE_SIZE // 2 - 4
+    yi, xi = np.mgrid[0:SHAPE_SIZE, 0:SHAPE_SIZE]
+    t = np.sqrt((xi - cx) ** 2 + (yi - cy) ** 2).astype(np.float32) / r
+
+    arr = np.where(t <= 0.48, 1.0, 0.0).astype(np.float32)
+
+    edge = (t > 0.44) & (t < 1.08)
+    edge_t = np.clip((t - 0.44) / 0.64, 0, 1)
+    base_falloff = (1.0 - edge_t) ** 0.90
+    # Two-scale noise: coarse lumps + fine grit
+    coarse = np.random.uniform(-1.0, 1.0, arr.shape).astype(np.float32)
+    coarse_blur = np.array(
+        Image.fromarray(((coarse + 1) / 2 * 255).astype(np.uint8)).filter(
+            ImageFilter.GaussianBlur(4.0)
+        )
+    ) / 255.0 * 2.0 - 1.0
+    fine = np.random.uniform(-0.50, 0.50, arr.shape).astype(np.float32)
+    combined = coarse_blur.astype(np.float32) * 0.55 + fine * 0.45
+    arr = np.where(edge, np.clip(base_falloff + combined * edge_t * 0.90, 0, 1), arr)
+    arr = np.where(t >= 1.08, 0.0, arr)
+
+    img = Image.fromarray((arr * 255).astype(np.uint8), "L")
+    return img.filter(ImageFilter.GaussianBlur(0.8))
+
+
+def shape_pencil_outline_mechanical() -> Image.Image:
+    """
+    0.5 mm mechanical pencil: near-perfect circle, ultra-thin fringe (4 %),
+    extremely consistent – the most pen-like of the set while still
+    carrying a microscopic graphite tooth.
+    """
+    cx = cy = SHAPE_SIZE // 2
+    r = SHAPE_SIZE // 2 - 10
+    yi, xi = np.mgrid[0:SHAPE_SIZE, 0:SHAPE_SIZE]
+    t = np.sqrt((xi - cx) ** 2 + (yi - cy) ** 2).astype(np.float32) / r
+
+    arr = np.where(t <= 0.80, 1.0, 0.0).astype(np.float32)
+    edge = (t > 0.78) & (t < 0.98)
+    edge_t = np.clip((t - 0.78) / 0.20, 0, 1)
+    base_falloff = (1.0 - edge_t) ** 3.0          # very abrupt
+    noise = np.random.uniform(-0.18, 0.18, arr.shape).astype(np.float32)
+    arr = np.where(edge, np.clip(base_falloff + noise * edge_t * 0.22, 0, 1), arr)
+    arr = np.where(t >= 0.98, 0.0, arr)
+
+    return Image.fromarray((arr * 255).astype(np.uint8), "L").filter(
+        ImageFilter.GaussianBlur(0.25))
+
+
 # ─────────────────────────────────────────────────────────────
 # Grain generators  (512×512 L-mode, light = high texture)
 # ─────────────────────────────────────────────────────────────
@@ -363,6 +507,46 @@ def grain_canvas() -> Image.Image:
                 arr[max(0, i - r):i + r, max(0, j - r):j + r] + 0.15, 0, 1)
     img = Image.fromarray((arr * 255).astype(np.uint8), "L")
     return img.filter(ImageFilter.GaussianBlur(0.5))
+
+
+def grain_waxy() -> Image.Image:
+    """
+    Smooth, slightly oily wax-pencil texture: gentle large-scale
+    variation with almost no sharp particles – stays behind the stroke.
+    """
+    base = np.random.uniform(0.82, 1.0, (GRAIN_SIZE, GRAIN_SIZE)).astype(np.float32)
+    # Large soft blobs that simulate uneven wax coverage
+    blobs = np.random.uniform(0, 1, (GRAIN_SIZE // 8, GRAIN_SIZE // 8)).astype(np.float32)
+    blobs_up = np.array(
+        Image.fromarray((blobs * 255).astype(np.uint8)).resize(
+            (GRAIN_SIZE, GRAIN_SIZE), Image.BILINEAR
+        )
+    ) / 255.0
+    arr = base * 0.70 + blobs_up * 0.30
+    arr = np.clip(arr, 0, 1)
+    img = Image.fromarray((arr * 255).astype(np.uint8), "L")
+    return img.filter(ImageFilter.GaussianBlur(2.0))
+
+
+def grain_charcoal() -> Image.Image:
+    """
+    Heavy charcoal grain: coarse dark chunks on a mid-grey base,
+    with directional smear marks.
+    """
+    arr = np.random.uniform(0.55, 0.90, (GRAIN_SIZE, GRAIN_SIZE)).astype(np.float32)
+    # Directional smear (horizontal streaks at varying intervals)
+    for i in range(0, GRAIN_SIZE, random.randint(4, 9)):
+        arr[i, :] *= random.uniform(0.60, 1.0)
+    # Chunky dark particles
+    chunk_mask = np.random.uniform(0, 1, arr.shape) > 0.80
+    arr[chunk_mask] *= np.random.uniform(0.10, 0.45, arr[chunk_mask].shape)
+    # Blur to merge chunks into smears
+    img = Image.fromarray((np.clip(arr, 0, 1) * 255).astype(np.uint8), "L")
+    img = img.filter(ImageFilter.GaussianBlur(1.8))
+    # Re-add fine grit on top
+    grit = np.random.uniform(-0.06, 0.06, (GRAIN_SIZE, GRAIN_SIZE)).astype(np.float32)
+    arr2 = np.clip(np.array(img) / 255.0 + grit, 0, 1)
+    return Image.fromarray((arr2 * 255).astype(np.uint8), "L")
 
 
 def grain_graphite() -> Image.Image:
@@ -633,6 +817,132 @@ BRUSHES = [
             "grainRotation": 0.0,
         },
     },
+    {
+        "filename": "Outline_Pencil_Hard.brush",
+        "shape_fn": shape_pencil_outline_hard,
+        "grain_fn": grain_graphite,
+        "archive_props": {
+            "name": "Outline Pencil Hard",
+            # near-pen precision; very high streamline, barely any tooth
+            "spacing": 0.012,
+            "streamlineAmount": 0.88,
+            "size": 35.0,
+            "opacity": 0.98,
+            "bleed": 0.01,
+            "jitter": 0.0,
+            "count": 1,
+            "scatterX": 0.0,
+            "scatterY": 0.0,
+            "grainZoom": 0.22,
+            "grainMoveAmount": 0.05,
+            "grainRotation": 0.0,
+        },
+    },
+    {
+        "filename": "Outline_Pencil_Soft.brush",
+        "shape_fn": shape_pencil_outline_soft,
+        "grain_fn": grain_graphite,
+        "archive_props": {
+            "name": "Outline Pencil Soft",
+            # 6B feel – lower streamline lets the edge breathe
+            "spacing": 0.022,
+            "streamlineAmount": 0.58,
+            "size": 70.0,
+            "opacity": 0.85,
+            "bleed": 0.06,
+            "jitter": 0.01,
+            "count": 1,
+            "scatterX": 0.0,
+            "scatterY": 0.0,
+            "grainZoom": 0.50,
+            "grainMoveAmount": 0.18,
+            "grainRotation": 0.0,
+        },
+    },
+    {
+        "filename": "Outline_Pencil_Scratchy.brush",
+        "shape_fn": shape_pencil_outline_scratchy,
+        "grain_fn": grain_graphite,
+        "archive_props": {
+            "name": "Outline Pencil Scratchy",
+            # moderate streamline so stroke wobble shows naturally
+            "spacing": 0.025,
+            "streamlineAmount": 0.45,
+            "size": 50.0,
+            "opacity": 0.88,
+            "bleed": 0.08,
+            "jitter": 0.02,
+            "count": 1,
+            "scatterX": 0.0,
+            "scatterY": 0.0,
+            "grainZoom": 0.38,
+            "grainMoveAmount": 0.20,
+            "grainRotation": 0.0,
+        },
+    },
+    {
+        "filename": "Outline_Pencil_Waxy.brush",
+        "shape_fn": shape_pencil_outline_waxy,
+        "grain_fn": grain_waxy,
+        "archive_props": {
+            "name": "Outline Pencil Waxy",
+            # smooth, steady flow like a colored pencil
+            "spacing": 0.016,
+            "streamlineAmount": 0.72,
+            "size": 65.0,
+            "opacity": 0.87,
+            "bleed": 0.04,
+            "jitter": 0.0,
+            "count": 1,
+            "scatterX": 0.0,
+            "scatterY": 0.0,
+            "grainZoom": 0.60,
+            "grainMoveAmount": 0.08,
+            "grainRotation": 0.0,
+        },
+    },
+    {
+        "filename": "Outline_Pencil_Charcoal_Edge.brush",
+        "shape_fn": shape_pencil_outline_charcoal_edge,
+        "grain_fn": grain_charcoal,
+        "archive_props": {
+            "name": "Outline Pencil Charcoal Edge",
+            # looser flow to let the chunky fringe breathe
+            "spacing": 0.028,
+            "streamlineAmount": 0.55,
+            "size": 85.0,
+            "opacity": 0.84,
+            "bleed": 0.10,
+            "jitter": 0.02,
+            "count": 1,
+            "scatterX": 0.0,
+            "scatterY": 0.0,
+            "grainZoom": 0.55,
+            "grainMoveAmount": 0.22,
+            "grainRotation": 0.0,
+        },
+    },
+    {
+        "filename": "Outline_Pencil_Mechanical.brush",
+        "shape_fn": shape_pencil_outline_mechanical,
+        "grain_fn": grain_graphite,
+        "archive_props": {
+            "name": "Outline Pencil Mechanical",
+            # most pen-like of the set; highest streamline
+            "spacing": 0.010,
+            "streamlineAmount": 0.90,
+            "size": 25.0,
+            "opacity": 0.99,
+            "bleed": 0.0,
+            "jitter": 0.0,
+            "count": 1,
+            "scatterX": 0.0,
+            "scatterY": 0.0,
+            "grainZoom": 0.18,
+            "grainMoveAmount": 0.03,
+            "grainRotation": 0.0,
+        },
+    },
 ]
 
 
@@ -666,15 +976,39 @@ def build_brush_file(brush_def: dict, out_dir: str) -> str:
     return out_path
 
 
+def _make_zip(zip_path: str, brush_paths: list[str]) -> None:
+    """Bundle a list of .brush files into a single ZIP."""
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for p in brush_paths:
+            zf.write(p, arcname=os.path.basename(p))
+
+
 def main():
     print(f"Generating {len(BRUSHES)} Procreate brushes → {OUTPUT_DIR}/\n")
+    all_paths: list[str] = []
+    outline_paths: list[str] = []
     for brush in BRUSHES:
         path = build_brush_file(brush, OUTPUT_DIR)
+        all_paths.append(path)
+        if brush["filename"].startswith("Outline_Pencil"):
+            outline_paths.append(path)
         has_grain = brush["grain_fn"] is not None
         grain_tag = "shape + grain" if has_grain else "shape only"
         print(f"  ✓  {brush['filename']}  ({grain_tag})")
-    print(f"\nDone. Import the .brush files into Procreate via "
-          f"Files → Open or the Procreate brush panel.")
+
+    # ── ZIP bundles ──────────────────────────────────────────
+    outline_zip = "outline_pencil_brushes.zip"
+    all_zip = "procreate_brushes.zip"
+    _make_zip(outline_zip, outline_paths)
+    _make_zip(all_zip, all_paths)
+
+    import os as _os
+    outline_kb = _os.path.getsize(outline_zip) // 1024
+    all_kb     = _os.path.getsize(all_zip)     // 1024
+    print(f"\nZIP bundles created:")
+    print(f"  {outline_zip}  ({outline_kb} KB  –  {len(outline_paths)} outline brushes)")
+    print(f"  {all_zip}       ({all_kb} KB  –  {len(all_paths)} brushes total)")
+    print(f"\nImport into Procreate via Files → Open or the brush panel.")
 
 
 if __name__ == "__main__":
