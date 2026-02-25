@@ -212,6 +212,119 @@ def shape_watercolor() -> Image.Image:
         ImageFilter.GaussianBlur(3))
 
 
+# ── Pencil-outline shapes ─────────────────────────────────────
+#    Solid pen core + noisy/granular edge falloff = pencil tooth
+
+def shape_pencil_outline_round() -> Image.Image:
+    """
+    Solid pen-like core (inner 55 %) transitioning to a noisy
+    pencil-grain fringe (outer 45 %).  Results in crisp, smooth
+    centre strokes with slight tooth on the edges.
+    """
+    cx = cy = SHAPE_SIZE // 2
+    r = SHAPE_SIZE // 2 - 6
+    yi, xi = np.mgrid[0:SHAPE_SIZE, 0:SHAPE_SIZE]
+    dist = np.sqrt((xi - cx) ** 2 + (yi - cy) ** 2).astype(np.float32)
+    t = dist / r  # 0 = centre, 1 = edge, >1 = outside
+
+    # Solid core
+    arr = np.where(t <= 0.55, 1.0, 0.0).astype(np.float32)
+
+    # Edge zone: smooth falloff + graphite particle noise
+    edge = (t > 0.52) & (t < 1.02)
+    edge_t = np.clip((t - 0.52) / 0.50, 0, 1)   # 0→1 across the fringe
+    base_falloff = (1.0 - edge_t) ** 1.4
+    noise = np.random.uniform(-0.55, 0.55, arr.shape).astype(np.float32)
+    arr = np.where(edge, np.clip(base_falloff + noise * edge_t * 0.7, 0, 1), arr)
+    arr = np.where(t >= 1.02, 0.0, arr)
+
+    img = Image.fromarray((arr * 255).astype(np.uint8), "L")
+    # Very light blur – just enough to anti-alias the core boundary
+    return img.filter(ImageFilter.GaussianBlur(0.6))
+
+
+def shape_pencil_outline_tapered() -> Image.Image:
+    """
+    Slightly elongated (vertical) oval with pencil-grain edges –
+    gives a natural taper when the stroke angle changes, like a
+    well-sharpened pencil held at a slight angle.
+    """
+    cx = cy = SHAPE_SIZE // 2
+    rx, ry = SHAPE_SIZE // 2 - 8, int(SHAPE_SIZE * 0.38)   # wider than tall
+    yi, xi = np.mgrid[0:SHAPE_SIZE, 0:SHAPE_SIZE]
+    # Ellipse distance (normalised)
+    t = np.sqrt(((xi - cx) / rx) ** 2 + ((yi - cy) / ry) ** 2).astype(np.float32)
+
+    arr = np.where(t <= 0.52, 1.0, 0.0).astype(np.float32)
+
+    edge = (t > 0.48) & (t < 1.05)
+    edge_t = np.clip((t - 0.48) / 0.57, 0, 1)
+    base_falloff = (1.0 - edge_t) ** 1.6
+    noise = np.random.uniform(-0.50, 0.50, arr.shape).astype(np.float32)
+    arr = np.where(edge, np.clip(base_falloff + noise * edge_t * 0.65, 0, 1), arr)
+    arr = np.where(t >= 1.05, 0.0, arr)
+
+    img = Image.fromarray((arr * 255).astype(np.uint8), "L")
+    return img.filter(ImageFilter.GaussianBlur(0.5))
+
+
+def shape_pencil_outline_fine() -> Image.Image:
+    """
+    Tighter, smaller core (45 %) with a thinner pencil fringe –
+    for fine-detail outlines that stay crisp at small sizes.
+    """
+    cx = cy = SHAPE_SIZE // 2
+    r = SHAPE_SIZE // 2 - 10
+    yi, xi = np.mgrid[0:SHAPE_SIZE, 0:SHAPE_SIZE]
+    dist = np.sqrt((xi - cx) ** 2 + (yi - cy) ** 2).astype(np.float32)
+    t = dist / r
+
+    arr = np.where(t <= 0.45, 1.0, 0.0).astype(np.float32)
+
+    edge = (t > 0.42) & (t < 0.98)
+    edge_t = np.clip((t - 0.42) / 0.56, 0, 1)
+    base_falloff = (1.0 - edge_t) ** 1.2
+    noise = np.random.uniform(-0.60, 0.60, arr.shape).astype(np.float32)
+    arr = np.where(edge, np.clip(base_falloff + noise * edge_t * 0.75, 0, 1), arr)
+    arr = np.where(t >= 0.98, 0.0, arr)
+
+    img = Image.fromarray((arr * 255).astype(np.uint8), "L")
+    return img.filter(ImageFilter.GaussianBlur(0.4))
+
+
+def shape_pencil_outline_bold() -> Image.Image:
+    """
+    Wider core (60 %) with a coarser fringe – bold outlines with
+    clearly visible pencil grain on both edges.
+    """
+    cx = cy = SHAPE_SIZE // 2
+    r = SHAPE_SIZE // 2 - 4
+    yi, xi = np.mgrid[0:SHAPE_SIZE, 0:SHAPE_SIZE]
+    dist = np.sqrt((xi - cx) ** 2 + (yi - cy) ** 2).astype(np.float32)
+    t = dist / r
+
+    arr = np.where(t <= 0.60, 1.0, 0.0).astype(np.float32)
+
+    edge = (t > 0.56) & (t < 1.04)
+    edge_t = np.clip((t - 0.56) / 0.48, 0, 1)
+    base_falloff = (1.0 - edge_t) ** 1.1
+    # Coarser, chunkier noise to emphasise pencil grain
+    noise = np.random.uniform(-0.65, 0.65, arr.shape).astype(np.float32)
+    noise_blur = np.array(
+        Image.fromarray(((noise + 0.65) / 1.3 * 255).astype(np.uint8)).filter(
+            ImageFilter.GaussianBlur(1.5)
+        )
+    ) / 255.0 * 1.3 - 0.65
+    arr = np.where(edge,
+                   np.clip(base_falloff + noise_blur.astype(np.float32) * edge_t * 0.80,
+                           0, 1),
+                   arr)
+    arr = np.where(t >= 1.04, 0.0, arr)
+
+    img = Image.fromarray((arr * 255).astype(np.uint8), "L")
+    return img.filter(ImageFilter.GaussianBlur(0.7))
+
+
 # ─────────────────────────────────────────────────────────────
 # Grain generators  (512×512 L-mode, light = high texture)
 # ─────────────────────────────────────────────────────────────
@@ -250,6 +363,36 @@ def grain_canvas() -> Image.Image:
                 arr[max(0, i - r):i + r, max(0, j - r):j + r] + 0.15, 0, 1)
     img = Image.fromarray((arr * 255).astype(np.uint8), "L")
     return img.filter(ImageFilter.GaussianBlur(0.5))
+
+
+def grain_graphite() -> Image.Image:
+    """
+    Fine graphite/pencil grain: tiny dark particles on a light base,
+    with faint directional striations mimicking pencil stroke direction.
+    Used on the pencil-outline brushes to add tooth at the edges.
+    """
+    # Light mid-grey base with subtle uniform noise
+    arr = np.random.uniform(0.72, 1.0, (GRAIN_SIZE, GRAIN_SIZE)).astype(np.float32)
+
+    # Very faint horizontal striations (pencil strokes)
+    for i in range(0, GRAIN_SIZE, random.randint(2, 5)):
+        arr[i, :] *= random.uniform(0.88, 1.0)
+
+    # Sparse dark graphite particles
+    particle_mask = np.random.uniform(0, 1, arr.shape) > 0.91
+    arr[particle_mask] *= np.random.uniform(0.20, 0.55,
+                                            arr[particle_mask].shape)
+
+    # Tiny clusters – blur by a very small amount then re-sharpen
+    blurred = np.array(
+        Image.fromarray((arr * 255).astype(np.uint8)).filter(
+            ImageFilter.GaussianBlur(0.4)
+        )
+    ) / 255.0
+    arr = arr * 0.55 + blurred * 0.45
+
+    img = Image.fromarray((np.clip(arr, 0, 1) * 255).astype(np.uint8), "L")
+    return img
 
 
 def grain_rough() -> Image.Image:
@@ -400,6 +543,93 @@ BRUSHES = [
             "scatterY": 0.02,
             "grainZoom": 0.55,
             "grainMoveAmount": 0.20,
+            "grainRotation": 0.0,
+        },
+    },
+
+    # ── Pencil-outline brushes ────────────────────────────────
+    # Pen-like flow + pencil-tooth edges
+    {
+        "filename": "Outline_Pencil_Fine.brush",
+        "shape_fn": shape_pencil_outline_fine,
+        "grain_fn": grain_graphite,
+        "archive_props": {
+            "name": "Outline Pencil Fine",
+            # tight spacing + high streamline = pen-like smooth lines
+            "spacing": 0.015,
+            "streamlineAmount": 0.82,
+            "size": 30.0,
+            "opacity": 0.96,
+            "bleed": 0.02,
+            "jitter": 0.0,
+            "count": 1,
+            "scatterX": 0.0,
+            "scatterY": 0.0,
+            # subtle graphite grain on the stroke edge
+            "grainZoom": 0.30,
+            "grainMoveAmount": 0.08,
+            "grainRotation": 0.0,
+        },
+    },
+    {
+        "filename": "Outline_Pencil_Medium.brush",
+        "shape_fn": shape_pencil_outline_round,
+        "grain_fn": grain_graphite,
+        "archive_props": {
+            "name": "Outline Pencil Medium",
+            "spacing": 0.018,
+            "streamlineAmount": 0.75,
+            "size": 55.0,
+            "opacity": 0.93,
+            "bleed": 0.03,
+            "jitter": 0.0,
+            "count": 1,
+            "scatterX": 0.0,
+            "scatterY": 0.0,
+            "grainZoom": 0.35,
+            "grainMoveAmount": 0.10,
+            "grainRotation": 0.0,
+        },
+    },
+    {
+        "filename": "Outline_Pencil_Tapered.brush",
+        "shape_fn": shape_pencil_outline_tapered,
+        "grain_fn": grain_graphite,
+        "archive_props": {
+            "name": "Outline Pencil Tapered",
+            # slightly lower streamline so the taper responds to speed
+            "spacing": 0.016,
+            "streamlineAmount": 0.68,
+            "size": 60.0,
+            "opacity": 0.91,
+            "bleed": 0.04,
+            "jitter": 0.01,
+            "count": 1,
+            "scatterX": 0.0,
+            "scatterY": 0.0,
+            "grainZoom": 0.40,
+            "grainMoveAmount": 0.12,
+            "grainRotation": 0.0,
+        },
+    },
+    {
+        "filename": "Outline_Pencil_Bold.brush",
+        "shape_fn": shape_pencil_outline_bold,
+        "grain_fn": grain_graphite,
+        "archive_props": {
+            "name": "Outline Pencil Bold",
+            "spacing": 0.020,
+            "streamlineAmount": 0.65,
+            "size": 90.0,
+            "opacity": 0.90,
+            "bleed": 0.05,
+            "jitter": 0.01,
+            "count": 1,
+            "scatterX": 0.0,
+            "scatterY": 0.0,
+            # more grain visible on the wider stroke
+            "grainZoom": 0.45,
+            "grainMoveAmount": 0.15,
             "grainRotation": 0.0,
         },
     },
