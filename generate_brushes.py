@@ -976,21 +976,36 @@ def build_brush_file(brush_def: dict, out_dir: str) -> str:
     return out_path
 
 
-def _make_brushset(path: str, brush_paths: list[str]) -> None:
+def _make_delivery_zip(zip_path: str, sets: dict) -> None:
     """
-    Bundle .brush files into a Procreate-importable .brushset file.
+    Create one ZIP containing unzipped .brushset folders, each holding
+    unzipped .brush folders with their raw files.
 
-    A .brushset is a ZIP containing .brush files at the root, stored
-    uncompressed (ZIP_STORED) so each entry is a valid ZIP that
-    Procreate can open directly.
+    Structure inside the ZIP:
+        Outline_Pencil_Brushes.brushset/
+            Outline_Pencil_Fine.brush/
+                Brush.archive
+                Shape.png
+                Grain.png
+            ...
+        All_Procreate_Brushes.brushset/
+            Ink_Smooth.brush/
+                Brush.archive
+                Shape.png
+            ...
 
-        Outline_Pencil_Fine.brush
-        Outline_Pencil_Medium.brush
-        ...
+    sets: {"FolderName.brushset": [list of .brush file paths], ...}
     """
-    with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as bs:
-        for brush_path in brush_paths:
-            bs.write(brush_path, arcname=os.path.basename(brush_path))
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for set_folder, brush_paths in sets.items():
+            for brush_path in brush_paths:
+                brush_name = os.path.basename(brush_path)
+                with zipfile.ZipFile(brush_path, "r") as bz:
+                    for entry in bz.namelist():
+                        zf.writestr(
+                            f"{set_folder}/{brush_name}/{entry}",
+                            bz.read(entry)
+                        )
 
 
 def main():
@@ -1006,18 +1021,18 @@ def main():
         grain_tag = "shape + grain" if has_grain else "shape only"
         print(f"  ✓  {brush['filename']}  ({grain_tag})")
 
-    # ── .brushset bundles (importable directly into Procreate) ──
-    outline_bs = "Outline_Pencil_Brushes.brushset"
-    all_bs     = "All_Procreate_Brushes.brushset"
-    _make_brushset(outline_bs, outline_paths)
-    _make_brushset(all_bs, all_paths)
+    # ── Single delivery ZIP: two unzipped .brushset folders inside ──
+    delivery_zip = "procreate_brushes.zip"
+    _make_delivery_zip(delivery_zip, {
+        "Outline_Pencil_Brushes.brushset": outline_paths,
+        "All_Procreate_Brushes.brushset":  all_paths,
+    })
 
-    outline_kb = os.path.getsize(outline_bs) // 1024
-    all_kb     = os.path.getsize(all_bs)     // 1024
-    print(f"\n.brushset bundles (tap once in Files to import the whole group):")
-    print(f"  {outline_bs}  ({outline_kb} KB  –  {len(outline_paths)} brushes)")
-    print(f"  {all_bs}         ({all_kb} KB  –  {len(all_paths)} brushes)")
-    print(f"\nIn Procreate: tap a .brushset file → it appears as a new brush group.")
+    kb = os.path.getsize(delivery_zip) // 1024
+    print(f"\nDelivery ZIP: {delivery_zip}  ({kb} KB)")
+    print(f"  Outline_Pencil_Brushes.brushset/  ({len(outline_paths)} brushes)")
+    print(f"  All_Procreate_Brushes.brushset/   ({len(all_paths)} brushes)")
+    print(f"\nUnzip → import each .brushset folder into Procreate.")
 
 
 if __name__ == "__main__":
