@@ -981,8 +981,12 @@ def _make_brushset(path: str, brush_paths: list[str]) -> None:
     Bundle .brush files into a Procreate-importable .brushset file.
     A .brushset is a flat ZIP of .brush files; Procreate creates a
     named brush group from it on import.
+
+    IMPORTANT: inner .brush files must use ZIP_STORED (no compression).
+    Each .brush is already a ZIP archive; re-compressing with DEFLATE
+    makes Procreate unable to open them as ZIPs, so the set appears empty.
     """
-    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as zf:
         for p in brush_paths:
             zf.write(p, arcname=os.path.basename(p))
 
