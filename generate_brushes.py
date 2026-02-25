@@ -976,9 +976,13 @@ def build_brush_file(brush_def: dict, out_dir: str) -> str:
     return out_path
 
 
-def _make_zip(zip_path: str, brush_paths: list[str]) -> None:
-    """Bundle a list of .brush files into a single ZIP."""
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+def _make_brushset(path: str, brush_paths: list[str]) -> None:
+    """
+    Bundle .brush files into a Procreate-importable .brushset file.
+    A .brushset is a flat ZIP of .brush files; Procreate creates a
+    named brush group from it on import.
+    """
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
         for p in brush_paths:
             zf.write(p, arcname=os.path.basename(p))
 
@@ -996,19 +1000,18 @@ def main():
         grain_tag = "shape + grain" if has_grain else "shape only"
         print(f"  ✓  {brush['filename']}  ({grain_tag})")
 
-    # ── ZIP bundles ──────────────────────────────────────────
-    outline_zip = "outline_pencil_brushes.zip"
-    all_zip = "procreate_brushes.zip"
-    _make_zip(outline_zip, outline_paths)
-    _make_zip(all_zip, all_paths)
+    # ── .brushset bundles (importable directly into Procreate) ──
+    outline_bs = "Outline_Pencil_Brushes.brushset"
+    all_bs     = "All_Procreate_Brushes.brushset"
+    _make_brushset(outline_bs, outline_paths)
+    _make_brushset(all_bs, all_paths)
 
-    import os as _os
-    outline_kb = _os.path.getsize(outline_zip) // 1024
-    all_kb     = _os.path.getsize(all_zip)     // 1024
-    print(f"\nZIP bundles created:")
-    print(f"  {outline_zip}  ({outline_kb} KB  –  {len(outline_paths)} outline brushes)")
-    print(f"  {all_zip}       ({all_kb} KB  –  {len(all_paths)} brushes total)")
-    print(f"\nImport into Procreate via Files → Open or the brush panel.")
+    outline_kb = os.path.getsize(outline_bs) // 1024
+    all_kb     = os.path.getsize(all_bs)     // 1024
+    print(f"\n.brushset bundles (tap once in Files to import the whole group):")
+    print(f"  {outline_bs}  ({outline_kb} KB  –  {len(outline_paths)} brushes)")
+    print(f"  {all_bs}         ({all_kb} KB  –  {len(all_paths)} brushes)")
+    print(f"\nIn Procreate: tap a .brushset file → it appears as a new brush group.")
 
 
 if __name__ == "__main__":
