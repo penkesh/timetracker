@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>Activate</key>
+		<string>Normal</string>
+		<key>CreationDate</key>
+		<real>788918400</real>
+		<key>Macros</key>
+		<array>
+			<dict>
+				<key>Actions</key>
+				<array>
+					<dict>
+						<key>ActionUID</key>
+						<string>C0D5E4F3-6F7A-8B9C-0D1E-2F3A4B5C6D7E</string>
+						<key>IsActive</key>
+						<true/>
+						<key>NotifyOnFailure</key>
+						<true/>
+						<key>Script</key>
+						<string>#!/bin/bash
+
+# Read current value (defaults to 1/enabled if key doesn't exist)
+current=$(defaults read com.apple.mail IncludeMessageInReply 2&gt;/dev/null)
+
+if [ "$current" = "0" ]; then
+    # Currently OFF — turn it ON
+    defaults write com.apple.mail IncludeMessageInReply -bool true
+    STATE="ON ✓"
+else
+    # Currently ON (or unset/default) — turn it OFF
+    defaults write com.apple.mail IncludeMessageInReply -bool false
+    STATE="OFF ✗"
+fi
+
+osascript -e "display notification \"Quote original message: $STATE\" with title \"Mail Setting Toggled\" sound name \"Tink\""
+</string>
+						<key>TimeOutAbortsMacro</key>
+						<true/>
+						<key>TrimResults</key>
+						<true/>
+						<key>Type</key>
+						<string>ExecuteShellScript</string>
+					</dict>
+				</array>
+				<key>CreationDate</key>
+				<real>788918400</real>
+				<key>Enabled</key>
+				<true/>
+				<key>Name</key>
+				<string>Toggle "Quote Original Message" in Mail</string>
+				<key>Triggers</key>
+				<array>
+					<dict>
+						<key>ActivateApp</key>
+						<false/>
+						<key>IsActive</key>
+						<true/>
+						<key>KeyCode</key>
+						<integer>12</integer>
+						<key>Modifiers</key>
+						<integer>786432</integer>
+						<key>Type</key>
+						<string>HotKey</string>
+					</dict>
+				</array>
+				<key>UID</key>
+				<string>B9C4D3E2-5E6F-7A8B-9C0D-1E2F3A4B5C6D</string>
+			</dict>
+		</array>
+		<key>Name</key>
+		<string>Mail Utilities</string>
+		<key>UID</key>
+		<string>A8B3F2C1-4D5E-6F7A-8B9C-0D1E2F3A4B5C</string>
+	</dict>
+</array>
+</plist>
